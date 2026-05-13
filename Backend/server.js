@@ -9,10 +9,13 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('✅ PostgreSQL connected successfully.');
 
-    // Sync models (use migrations in production)
+    // Sync models
     if (process.env.NODE_ENV === 'development') {
       await sequelize.sync({ alter: true });
-      console.log('✅ Database models synced.');
+      console.log('✅ Database models synced (dev mode - alter).');
+    } else {
+      await sequelize.sync();
+      console.log('✅ Database models synced (tables created if not exist).');
     }
 
     app.listen(PORT, () => {
