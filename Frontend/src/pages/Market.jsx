@@ -1,11 +1,43 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, ArrowRight } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { marketAPI } from '../utils/api'
 import { mockMarketPrices, mockPriceHistory } from '../utils/mockData'
 
 export default function Market() {
   const [selected, setSelected] = useState('Indore')
+  const [prices, setPrices] = useState([])
+  const [priceHistory, setPriceHistory] = useState([])
+  const [loading, setLoading] = useState(true)
   const mandis = ['Indore', 'Bhopal', 'Ujjain', 'Dewas', 'Manasa']
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const pricesData = await marketAPI.getPrices(null, { state: 'Madhya Pradesh' })
+        setPrices(pricesData.prices || pricesData || [])
+        const history = pricesData.prices 
+          ? pricesData.prices.filter(p => p.tradeDate).slice(0, 30).map(p => ({
+              date: p.tradeDate,
+              price: p.pricePerQuintal,
+              crop: p.cropName,
+            }))
+          : mockPriceHistory
+        setPriceHistory(history.length > 0 ? history : mockPriceHistory)
+      } catch (err) {
+        console.error('Market fetch error:', err)
+        setPrices(mockMarketPrices)
+        setPriceHistory(mockPriceHistory)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  const displayPrices = prices.length > 0 
+    ? prices.filter(p => !selected || (p.mandi?.name === selected))
+    : mockMarketPrices.filter(p => p.mandi === selected)
 
   return (
     <div className="space-y-6">
@@ -30,40 +62,51 @@ export default function Market() {
 
       {/* Price cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {mockMarketPrices.map((m, i) => (
-          <div key={i} className="bg-white rounded-xl border border-earth-100 p-4 hover:border-earth-200 transition-colors">
-            <div className="flex items-start justify-between mb-2">
-              <div>
-                <p className="font-semibold text-soil-800">{m.crop}</p>
-                <p className="text-xs text-soil-400">{m.cropHindi}</p>
-              </div>
-              <span className={`text-xs font-medium flex items-center gap-0.5 ${m.trend === 'up' ? 'text-leaf-600' : 'text-red-500'}`}>
-                {m.trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                {m.trend === 'up' ? '+' : ''}{m.change}
-              </span>
-            </div>
-            <p className="font-sora text-2xl font-bold text-soil-900">₹{m.price.toLocaleString()}</p>
-            <p className="text-xs text-soil-400 mt-1">per {m.unit} • {m.mandi}</p>
+        {loading ? (
+          <div className="col-span-full text-center py-8 text-soil-400">
+            Loading prices...
           </div>
-        ))}
+        ) : (
+          displayPrices.slice(0, 6).map((m, i) => {
+            const name = m.cropName || m.crop || '';
+            const price = m.pricePerQuintal || m.price || 0;
+            const change = m.priceChange || m.change || 0;
+            const mandiName = m.mandi?.name || m.mandi || '';
+            const stateName = m.mandi?.state || '';
+            return (
+            <div key={i} className="bg-white rounded-xl border border-earth-100 p-4 hover:border-earth-200 transition-colors">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <p className="font-semibold text-soil-800">{name}</p>
+                  <p className="text-xs text-soil-400">{stateName}</p>
+                </div>
+                <span className={`text-xs font-medium flex items-center gap-0.5 ${change >= 0 ? 'text-leaf-600' : 'text-red-500'}`}>
+                  {change >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                  {change >= 0 ? '+' : ''}{change}
+                </span>
+              </div>
+              <p className="font-sora text-2xl font-bold text-soil-900">₹{Number(price).toLocaleString()}</p>
+              <p className="text-xs text-soil-400 mt-1">per quintal • {mandiName}</p>
+            </div>
+            )
+          })
+        )}
       </div>
 
       {/* Price history chart */}
       <div className="bg-white rounded-2xl border border-earth-100 p-5">
         <h3 className="font-sora font-semibold text-soil-800 mb-4">6-Month Price Trend</h3>
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={mockPriceHistory} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <LineChart data={priceHistory} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f5edd8" />
-            <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#888' }} />
+            <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#888' }} />
             <YAxis tick={{ fontSize: 12, fill: '#888' }} />
             <Tooltip
               contentStyle={{ borderRadius: 12, border: '1px solid #e8bc72', fontSize: 12 }}
               formatter={(v) => [`₹${v.toLocaleString()}`, '']}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line type="monotone" dataKey="soybean" name="Soybean" stroke="#16a34a" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="maize"   name="Maize"   stroke="#0284c7" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="cotton"  name="Cotton"  stroke="#c97f1e" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="price" name="Price" stroke="#16a34a" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

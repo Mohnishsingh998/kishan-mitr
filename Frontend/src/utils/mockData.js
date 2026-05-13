@@ -7,13 +7,13 @@ export const mockWeather = {
   condition: 'Partly Cloudy',
   uvIndex: 6,
   forecast: [
-    { day: 'Mon', high: 30, low: 22, rain: 10, icon: '🌤' },
-    { day: 'Tue', high: 28, low: 21, rain: 40, icon: '🌦' },
-    { day: 'Wed', high: 25, low: 20, rain: 70, icon: '🌧' },
-    { day: 'Thu', high: 27, low: 21, rain: 30, icon: '⛅' },
-    { day: 'Fri', high: 31, low: 23, rain: 5,  icon: '☀️' },
-    { day: 'Sat', high: 32, low: 24, rain: 5,  icon: '☀️' },
-    { day: 'Sun', high: 29, low: 22, rain: 20, icon: '🌤' },
+    { date: '2026-05-11T00:00:00Z', tempMax: 30, tempMin: 22, rainfall: 10, rainProbability: 10, icon: '🌤' },
+    { date: '2026-05-12T00:00:00Z', tempMax: 28, tempMin: 21, rainfall: 8, rainProbability: 40, icon: '🌦' },
+    { date: '2026-05-13T00:00:00Z', tempMax: 25, tempMin: 20, rainfall: 15, rainProbability: 70, icon: '🌧' },
+    { date: '2026-05-14T00:00:00Z', tempMax: 27, tempMin: 21, rainfall: 5, rainProbability: 30, icon: '⛅' },
+    { date: '2026-05-15T00:00:00Z', tempMax: 31, tempMin: 23, rainfall: 0, rainProbability: 5,  icon: '☀️' },
+    { date: '2026-05-16T00:00:00Z', tempMax: 32, tempMin: 24, rainfall: 0, rainProbability: 5,  icon: '☀️' },
+    { date: '2026-05-17T00:00:00Z', tempMax: 29, tempMin: 22, rainfall: 3, rainProbability: 20, icon: '🌤' },
   ]
 }
 

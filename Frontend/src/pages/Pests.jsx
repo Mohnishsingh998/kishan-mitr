@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Bug, AlertTriangle, Upload, Search, MapPin, ChevronRight } from 'lucide-react'
+import { pestAPI } from '../utils/api'
 
 const pests = [
   {
@@ -34,6 +35,28 @@ const severityMeta = {
 export default function Pests() {
   const [selected, setSelected] = useState(null)
   const [tab, setTab] = useState('outbreaks')
+  const [pestList, setPestList] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchPests() {
+      try {
+        const data = await pestAPI.getAll()
+        const raw = data.pests || data || pests
+        setPestList(Array.isArray(raw)
+          ? raw.map(p => ({ ...p, severity: p.severity || p.severityLevel }))
+          : raw)
+      } catch (err) {
+        console.error('Pests fetch error:', err)
+        setPestList(pests)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchPests()
+  }, [])
+
+  const displayPests = pestList.length > 0 ? pestList : pests
 
   return (
     <div className="space-y-6">
@@ -71,8 +94,8 @@ export default function Pests() {
           </div>
 
           {/* Pest list */}
-          {pests.map(pest => {
-            const meta = severityMeta[pest.severity]
+          {displayPests.map(pest => {
+            const meta = severityMeta[pest.severity] || { label: 'Unknown', color: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-400' }
             const isOpen = selected === pest.id
             return (
               <div key={pest.id} className="bg-white rounded-2xl border border-earth-100 overflow-hidden">

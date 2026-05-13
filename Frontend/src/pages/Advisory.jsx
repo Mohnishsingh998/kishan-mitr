@@ -1,5 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ChevronDown, ChevronUp, CheckCircle, AlertCircle, Droplets, TrendingUp, Calendar, Leaf } from 'lucide-react'
+import { advisoryAPI, farmerAPI } from '../utils/api'
+import { useAuth } from '../hooks/useAuth'
 import { mockAdvisory, mockFarmerProfile } from '../utils/mockData'
 
 const riskColor = { low: 'bg-leaf-50 text-leaf-700', medium: 'bg-amber-50 text-amber-700', high: 'bg-red-50 text-red-700' }
@@ -55,15 +57,15 @@ function CropCard({ rec, isTop }) {
         <div className="grid grid-cols-3 gap-3 mt-4">
           <div className="bg-earth-50 rounded-xl p-3">
             <p className="text-xs text-soil-400 mb-0.5">Yield</p>
-            <p className="text-xs font-semibold text-soil-800">{rec.expectedYield}</p>
+            <p className="text-xs font-semibold text-soil-800">{rec.estimatedYieldPerAcre ? `${rec.estimatedYieldPerAcre} q/acre` : 'N/A'}</p>
           </div>
           <div className="bg-leaf-50 rounded-xl p-3">
             <p className="text-xs text-soil-400 mb-0.5">Revenue</p>
-            <p className="text-xs font-semibold text-leaf-800">{rec.estimatedRevenue}</p>
+            <p className="text-xs font-semibold text-leaf-800">₹{Number(rec.estimatedRevenue || 0).toLocaleString()}</p>
           </div>
           <div className="bg-sky-50 rounded-xl p-3">
             <p className="text-xs text-soil-400 mb-0.5">Water</p>
-            <p className="text-xs font-semibold text-sky-800">{rec.waterRequirement.split('(')[0].trim()}</p>
+            <p className="text-xs font-semibold text-sky-800">{rec.waterRequirement ? rec.waterRequirement.split('(')[0].trim() : 'Medium'}</p>
           </div>
         </div>
 
@@ -127,8 +129,49 @@ function CropCard({ rec, isTop }) {
 }
 
 export default function Advisory() {
-  const [landId, setLandId] = useState('L001')
+  const [landId, setLandId] = useState('')
+  const [recommendations, setRecommendations] = useState(null)
+  const [lands, setLands] = useState([])
+  const [loading, setLoading] = useState(true)
+  const { token } = useAuth()
 
+  useEffect(() => {
+    async function fetchLands() {
+      const farmerId = localStorage.getItem('km_farmer_id')
+      if (farmerId && token) {
+        try {
+          const landData = await farmerAPI.getLands(farmerId, token)
+          if (landData && landData.length > 0) {
+            setLands(landData)
+            setLoading(false)
+            return
+          }
+        } catch (e) {
+          console.error('Failed to fetch lands:', e)
+        }
+      }
+      setLoading(false)
+    }
+    fetchLands()
+  }, [token])
+
+  useEffect(() => {
+    if (!landId) return
+    async function fetchRecommendations() {
+      const farmerId = localStorage.getItem('km_farmer_id')
+      if (!farmerId) return
+      try {
+        const recData = await advisoryAPI.getRecommendation({ landId, farmerId })
+        setRecommendations(recData.recommendations || recData || mockAdvisory.topRecommendations)
+      } catch (err) {
+        console.error('Advisory fetch error:', err)
+        setRecommendations(mockAdvisory.topRecommendations)
+      }
+    }
+    fetchRecommendations()
+  }, [landId])
+
+  const displayRecs = recommendations || mockAdvisory.topRecommendations;
   return (
     <div className="space-y-6">
       <div>
@@ -139,8 +182,13 @@ export default function Advisory() {
       {/* Field selector */}
       <div className="bg-white rounded-2xl border border-earth-100 p-5">
         <h3 className="font-sora font-semibold text-soil-800 mb-3">Select Field</h3>
+        {loading ? (
+          <p className="text-sm text-soil-400">Loading fields...</p>
+        ) : lands.length === 0 ? (
+          <p className="text-sm text-soil-400">No fields found. Add a field in your profile to get crop recommendations.</p>
+        ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {mockFarmerProfile.lands.map(land => (
+          {lands.map(land => (
             <button
               key={land.id}
               onClick={() => setLandId(land.id)}
@@ -153,7 +201,7 @@ export default function Advisory() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-semibold text-sm text-soil-800">{land.name}</p>
-                  <p className="text-xs text-soil-400">{land.area} acres</p>
+                  <p className="text-xs text-soil-400">{land.areaAcres || land.area} acres</p>
                 </div>
                 {landId === land.id && <CheckCircle size={16} className="text-leaf-600" />}
               </div>
@@ -164,7 +212,7 @@ export default function Advisory() {
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-soil-500">
                   <Droplets size={10} className="text-soil-400" />
-                  {land.irrigation}
+                  {land.irrigationType || land.irrigation}
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-soil-500">
                   <Calendar size={10} className="text-soil-400" />
@@ -174,6 +222,7 @@ export default function Advisory() {
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {/* Advisory header */}
@@ -189,8 +238,8 @@ export default function Advisory() {
 
       {/* Crop cards */}
       <div className="space-y-4">
-        {mockAdvisory.topRecommendations.map((rec, i) => (
-          <CropCard key={rec.cropId} rec={rec} isTop={i === 0} />
+        {displayRecs.map((rec, i) => (
+          <CropCard key={rec.id || i} rec={rec} isTop={i === 0} />
         ))}
       </div>
     </div>

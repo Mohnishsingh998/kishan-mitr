@@ -1,10 +1,12 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Thermometer, Droplets, Wind, TrendingUp, TrendingDown,
   AlertTriangle, Info, ChevronRight, Sprout, Bell
 } from 'lucide-react'
-import { mockWeather, mockMarketPrices, mockAlerts, mockFarmerProfile, mockAdvisory } from '../utils/mockData'
+import { weatherAPI, marketAPI, advisoryAPI } from '../utils/api'
+import { useAuth } from '../hooks/useAuth'
+import { mockAlerts, mockAdvisory, mockFarmerProfile } from '../utils/mockData'
 
 const alertColors = {
   high:   { bg: 'bg-red-50',    border: 'border-red-200',    icon: 'text-red-500',    dot: 'bg-red-500' },
@@ -14,7 +16,27 @@ const alertColors = {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth()
+  const [weather, setWeather] = useState(null)
+  const [marketPrices, setMarketPrices] = useState([])
+  const [loading, setLoading] = useState(true)
   const top = mockAdvisory.topRecommendations[0]
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const weatherData = await weatherAPI.getCurrent()
+        const pricesData = await marketAPI.getPrices()
+        setWeather(weatherData)
+        setMarketPrices(pricesData.prices || pricesData || [])
+      } catch (err) {
+        console.error('Dashboard data fetch error:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -60,41 +82,39 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Weather card */}
         <div className="bg-gradient-to-b from-sky-500 to-sky-600 rounded-2xl p-5 text-white">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <p className="text-sky-100 text-xs mb-1">{mockWeather.location}</p>
-              <p className="font-sora text-4xl font-bold">{mockWeather.temperature}°C</p>
-              <p className="text-sky-100 text-sm mt-1">{mockWeather.condition}</p>
+          {loading ? (
+            <div className="flex items-center justify-center h-40">
+              <p className="text-sky-200">Loading weather...</p>
             </div>
-            <span className="text-4xl">⛅</span>
-          </div>
-          <div className="grid grid-cols-3 gap-3 pt-4 border-t border-sky-400">
-            <div className="text-center">
-              <Droplets size={14} className="mx-auto mb-1 text-sky-200" />
-              <p className="text-xs text-sky-100">Humidity</p>
-              <p className="font-semibold text-sm">{mockWeather.humidity}%</p>
-            </div>
-            <div className="text-center">
-              <Wind size={14} className="mx-auto mb-1 text-sky-200" />
-              <p className="text-xs text-sky-100">Wind</p>
-              <p className="font-semibold text-sm">{mockWeather.windSpeed} km/h</p>
-            </div>
-            <div className="text-center">
-              <Thermometer size={14} className="mx-auto mb-1 text-sky-200" />
-              <p className="text-xs text-sky-100">Rain</p>
-              <p className="font-semibold text-sm">{mockWeather.rainfall}mm</p>
-            </div>
-          </div>
-          {/* 7-day mini */}
-          <div className="flex justify-between mt-4 pt-4 border-t border-sky-400">
-            {mockWeather.forecast.map(d => (
-              <div key={d.day} className="text-center">
-                <p className="text-sky-200 text-xs">{d.day}</p>
-                <span className="text-sm">{d.icon}</span>
-                <p className="text-xs font-medium">{d.high}°</p>
+          ) : (
+            <>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-sky-100 text-xs mb-1">{weather?.location || 'Indore, MP'}</p>
+                  <p className="font-sora text-4xl font-bold">{Math.round(weather?.temperature || 28)}°C</p>
+                  <p className="text-sky-100 text-sm mt-1">{weather?.condition || 'Clear'}</p>
+                </div>
+                <span className="text-4xl">⛅</span>
               </div>
-            ))}
-          </div>
+              <div className="grid grid-cols-3 gap-3 pt-4 border-t border-sky-400">
+                <div className="text-center">
+                  <Droplets size={14} className="mx-auto mb-1 text-sky-200" />
+                  <p className="text-xs text-sky-100">Humidity</p>
+                  <p className="font-semibold text-sm">{weather?.humidity || 65}%</p>
+                </div>
+                <div className="text-center">
+                  <Wind size={14} className="mx-auto mb-1 text-sky-200" />
+                  <p className="text-xs text-sky-100">Wind</p>
+                  <p className="font-semibold text-sm">{Math.round(weather?.windSpeed || 10)} km/h</p>
+                </div>
+                <div className="text-center">
+                  <Thermometer size={14} className="mx-auto mb-1 text-sky-200" />
+                  <p className="text-xs text-sky-100">Rain</p>
+                  <p className="font-semibold text-sm">{weather?.rainfall || 0}mm</p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Top recommendation */}
@@ -183,22 +203,32 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {mockMarketPrices.map((m, i) => (
-                <tr key={i} className="border-b border-earth-50 last:border-0">
-                  <td className="py-2.5">
-                    <div className="font-medium text-soil-800">{m.crop}</div>
-                    <div className="text-xs text-soil-400">{m.cropHindi}</div>
-                  </td>
-                  <td className="py-2.5 text-soil-500 text-xs">{m.mandi}</td>
-                  <td className="py-2.5 text-right font-sora font-semibold text-soil-800">₹{m.price.toLocaleString()}</td>
-                  <td className="py-2.5 text-right">
-                    <span className={`flex items-center justify-end gap-0.5 text-xs font-medium ${m.trend === 'up' ? 'text-leaf-600' : 'text-red-500'}`}>
-                      {m.trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                      {m.trend === 'up' ? '+' : ''}{m.change}
-                    </span>
+              {marketPrices.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-4 text-center text-soil-400">
+                    Loading prices...
                   </td>
                 </tr>
-              ))}
+              ) : (
+                marketPrices.slice(0, 5).map((m, i) => {
+                  return (
+                    <tr key={i} className="border-b border-earth-50 last:border-0">
+                      <td className="py-2.5">
+                        <div className="font-medium text-soil-800">{m.cropName}</div>
+                        <div className="text-xs text-soil-400">{m.mandi?.state || ''}</div>
+                      </td>
+                      <td className="py-2.5 text-soil-500 text-xs">{m.mandi?.name || ''}</td>
+                      <td className="py-2.5 text-right font-sora font-semibold text-soil-800">₹{Number(m.pricePerQuintal || 0).toLocaleString()}</td>
+                      <td className="py-2.5 text-right">
+                        <span className={`flex items-center justify-end gap-0.5 text-xs font-medium ${(m.priceChange || 0) >= 0 ? 'text-leaf-600' : 'text-red-500'}`}>
+                          {(m.priceChange || 0) >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                          {(m.priceChange || 0) >= 0 ? '+' : ''}{m.priceChange || 0}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>

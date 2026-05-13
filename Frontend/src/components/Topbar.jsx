@@ -1,9 +1,22 @@
 import React from 'react'
 import { Bell, Search, Globe } from 'lucide-react'
 import { mockAlerts } from '../utils/mockData'
+import { useLanguage } from '../hooks/useLanguage'
+import { useAuth } from '../hooks/useAuth'
+import { authAPI } from '../utils/api'
 
 export default function Topbar({ collapsed }) {
   const unread = mockAlerts.filter(a => a.severity !== 'read').length
+  const { language, toggleLanguage, t } = useLanguage()
+  const { token } = useAuth()
+
+  const handleToggle = () => {
+    const next = language === 'en' ? 'hi' : 'en'
+    toggleLanguage()
+    if (token) {
+      authAPI.updateProfile({ preferredLanguage: next }, token).catch(() => {})
+    }
+  }
 
   return (
     <header className={`
@@ -18,7 +31,7 @@ export default function Topbar({ collapsed }) {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-soil-400" />
           <input
             type="text"
-            placeholder="Search crops, schemes, pests..."
+            placeholder={t('topbar.search')}
             className="w-full pl-9 pr-4 py-2 bg-earth-50 border border-earth-100 rounded-lg text-sm
                        focus:outline-none focus:ring-2 focus:ring-leaf-500 focus:border-transparent
                        placeholder:text-soil-400"
@@ -29,9 +42,12 @@ export default function Topbar({ collapsed }) {
       {/* Actions */}
       <div className="flex items-center gap-4">
         {/* Language toggle */}
-        <button className="flex items-center gap-1.5 text-sm text-soil-500 hover:text-leaf-700 transition-colors">
+        <button
+          onClick={handleToggle}
+          className="flex items-center gap-1.5 text-sm text-soil-500 hover:text-leaf-700 transition-colors"
+        >
           <Globe size={16} />
-          <span className="font-medium">EN / हिं</span>
+          <span className="font-medium">{language === 'en' ? 'हिंदी' : 'English'}</span>
         </button>
 
         {/* Notifications */}
@@ -47,7 +63,7 @@ export default function Topbar({ collapsed }) {
         {/* Season badge */}
         <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-leaf-50 border border-leaf-200 rounded-full">
           <div className="w-2 h-2 bg-leaf-500 rounded-full animate-pulse" />
-          <span className="text-xs font-medium text-leaf-700">Kharif Season 2024</span>
+          <span className="text-xs font-medium text-leaf-700">{t('topbar.season')}</span>
         </div>
       </div>
     </header>

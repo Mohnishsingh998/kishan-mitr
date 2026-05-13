@@ -2,8 +2,10 @@ import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Sprout, CloudSun, TrendingUp, Bug,
-  Landmark, User, ChevronLeft, Menu, Leaf
+  Landmark, User, ChevronLeft, Menu, Leaf,
+  Bot, Scan, TrendingUpIcon, BarChart3, CloudLightning
 } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
 
 // All colors hardcoded so sidebar is never invisible regardless of Tailwind JIT
 const C = {
@@ -28,8 +30,18 @@ const navItems = [
   { to: '/profile',   icon: User,            label: 'My Profile',     labelHindi: 'प्रोफाइल' },
 ]
 
+const aiNavItems = [
+  { to: '/ai-assistant', icon: Bot, label: 'AI Assistant', labelHindi: 'एआई सहायक' },
+  { to: '/ai-crops', icon: Sprout, label: 'Crop AI', labelHindi: 'फसल सुझाव' },
+  { to: '/ai-pest', icon: Scan, label: 'Pest Scan', labelHindi: 'कीट पहचान' },
+  { to: '/ai-yield', icon: TrendingUpIcon, label: 'Yield Predict', labelHindi: 'उपज भविष्यवाणी' },
+  { to: '/ai-market', icon: BarChart3, label: 'Price Forecast', labelHindi: 'भाव पूर्वानुमान' },
+  { to: '/ai-weather', icon: CloudLightning, label: 'Weather AI', labelHindi: 'मौसम अलर्ट' },
+]
+
 export default function Sidebar({ collapsed, setCollapsed }) {
   const [hovered, setHovered] = useState(null)
+  const { user } = useAuth()
 
   return (
     <aside
@@ -93,6 +105,66 @@ export default function Sidebar({ collapsed, setCollapsed }) {
         </button>
       )}
 
+      {/* AI Section Header */}
+      <div style={{ 
+        padding: collapsed ? '12px 0 4px' : '12px 16px 4px', 
+        fontSize: 10, 
+        fontWeight: 700, 
+        color: C.textSubtle, 
+        textTransform: 'uppercase', 
+        letterSpacing: '0.05em'
+      }}>
+        {!collapsed && '🤖 AI Tools'}
+      </div>
+      
+      <nav style={{ flex: 1, padding: '4px 0', overflowY: 'auto' }}>
+        {aiNavItems.map(({ to, icon: Icon, label, labelHindi }) => (
+          <NavLink
+            key={to}
+            to={to}
+            title={collapsed ? label : undefined}
+            style={{ textDecoration: 'none', display: 'block', margin: '2px 8px' }}
+          >
+            {({ isActive }) => (
+              <div
+                onMouseEnter={() => setHovered(to)}
+                onMouseLeave={() => setHovered(null)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: collapsed ? 0 : 12,
+                  justifyContent: collapsed ? 'center' : 'flex-start',
+                  padding: collapsed ? '10px 0' : '10px 12px',
+                  borderRadius: 8,
+                  background: isActive ? C.activeBg : hovered === to ? C.hoverBg : 'transparent',
+                  transition: 'background 150ms',
+                  cursor: 'pointer',
+                }}
+              >
+                <Icon
+                  size={18}
+                  color={isActive ? '#ffffff' : C.iconAccent}
+                  style={{ flexShrink: 0 }}
+                />
+                {!collapsed && (
+                  <div>
+                    <div style={{
+                      fontSize: 13, fontWeight: 500, lineHeight: 1.3,
+                      color: isActive ? '#ffffff' : C.textMuted,
+                    }}>
+                      {label}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.textSubtle, lineHeight: 1.2 }}>
+                      {labelHindi}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+
       {/* Nav items */}
       <nav style={{ flex: 1, padding: '12px 0', overflowY: 'auto' }}>
         {navItems.map(({ to, icon: Icon, label, labelHindi }) => (
@@ -155,13 +227,13 @@ export default function Sidebar({ collapsed, setCollapsed }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0,
             }}>
-              RP
+              {(user?.name || 'F').split(' ').map(n => n[0]).join('').substring(0, 2)}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                Ramesh Patidar
+                {user?.name || 'Farmer'}
               </div>
-              <div style={{ fontSize: 11, color: C.textSubtle }}>Badnawar, Dhar</div>
+              <div style={{ fontSize: 11, color: C.textSubtle }}>{user?.village || ''}, {user?.district || ''}</div>
             </div>
           </div>
         </div>

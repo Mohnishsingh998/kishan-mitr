@@ -4,9 +4,45 @@
 // ============================================================
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1'
 
+const DEFAULT_LOCATION = { lat: 22.7196, lng: 75.8577 } // Indore, MP
+
+function getStoredLocation() {
+  const stored = localStorage.getItem('km_location')
+  if (stored) {
+    try { return JSON.parse(stored) } catch {}
+  }
+  return null
+}
+
+export function getLocation() {
+  return new Promise((resolve) => {
+    const stored = getStoredLocation()
+    if (stored) return resolve(stored)
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+          localStorage.setItem('km_location', JSON.stringify(loc))
+          resolve(loc)
+        },
+        () => resolve(DEFAULT_LOCATION),
+        { timeout: 5000, maximumAge: 3600000 }
+      )
+    } else {
+      resolve(DEFAULT_LOCATION)
+    }
+  })
+}
+
+export function getToken() {
+  return localStorage.getItem('km_token')
+}
+
 async function request(method, path, body = null, token = null) {
   const headers = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+  const authToken = token || getToken()
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`
   const opts = { method, headers }
   if (body) opts.body = JSON.stringify(body)
   const res = await fetch(`${BASE_URL}${path}`, opts)
@@ -15,6 +51,11 @@ async function request(method, path, body = null, token = null) {
     throw new Error(err.message || `HTTP ${res.status}`)
   }
   return res.json()
+}
+
+// Generic sendRequest for AI and other endpoints
+export async function sendRequest(path, method = 'GET', body = null) {
+  return request(method, path, body)
 }
 
 // ---- AUTH ----
@@ -37,15 +78,20 @@ export const farmerAPI = {
   update: (id, data, token) => request('PUT', `/farmers/${id}`, data, token),
   delete: (id, token) => request('DELETE', `/farmers/${id}`, null, token),
   getLands: (farmerId, token) => request('GET', `/farmers/${farmerId}/lands`, null, token),
+  createLand: (farmerId, data, token) => request('POST', `/farmers/${farmerId}/lands`, data, token),
 }
 
 // ---- LAND / FIELD ----
 export const landAPI = {
+  getAll: (token) => request('GET', '/lands', null, token),
   create: (data, token) => request('POST', '/lands', data, token),
   update: (id, data, token) => request('PUT', `/lands/${id}`, data, token),
   delete: (id, token) => request('DELETE', `/lands/${id}`, null, token),
   getSoilReport: (landId, token) => request('GET', `/lands/${landId}/soil-report`, null, token),
-  addSoilReport: (landId, data, token) => request('POST', `/lands/${landId}/soil-report`, data, token),
+  addSoilReport: (landId, data, token) => {
+    const farmerId = localStorage.getItem('km_farmer_id')
+    return request('PUT', `/farmers/${farmerId}/lands/${landId}/soil`, data, token)
+  },
 }
 
 // ---- CROP ADVISORY ----
@@ -62,8 +108,8 @@ export const advisoryAPI = {
     return request('GET', `/advisory/calendar?${qs}`, null, token)
   },
   // Sow/harvest timing
-  getSowingSchedule: (cropId, regionId, token) =>
-    request('GET', `/advisory/sowing-schedule?crop_id=${cropId}&region_id=${regionId}`, null, token),
+  getSowingSchedule: (crop, region, token) =>
+    request('GET', `/advisory/sowing-schedule?crop=${crop}&region=${region}`, null, token),
 }
 
 // ---- CROPS ----
@@ -79,14 +125,18 @@ export const cropAPI = {
 
 // ---- WEATHER ----
 export const weatherAPI = {
-  getCurrent: (lat, lng, token) =>
-    request('GET', `/weather/current?lat=${lat}&lng=${lng}`, null, token),
-  getForecast: (lat, lng, days = 7, token) =>
-    request('GET', `/weather/forecast?lat=${lat}&lng=${lng}&days=${days}`, null, token),
+  getCurrent: async (lat, lng, token) => {
+    const location = lat && lng ? { lat, lng } : await getLocation()
+    return request('GET', `/weather/current?lat=${location.lat}&lng=${location.lng}`, null, token)
+  },
+  getForecast: async (lat, lng, days = 7, token) => {
+    const location = lat && lng ? { lat, lng } : await getLocation()
+    return request('GET', `/weather/forecast?lat=${location.lat}&lng=${location.lng}&days=${days}`, null, token)
+  },
   getHistorical: (lat, lng, from, to, token) =>
     request('GET', `/weather/historical?lat=${lat}&lng=${lng}&from=${from}&to=${to}`, null, token),
-  getAgriAlert: (regionId, token) =>
-    request('GET', `/weather/agri-alerts/${regionId}`, null, token),
+  getAgriAlert: (lat, lng, token) =>
+    request('GET', `/weather/agri-alerts?lat=${lat}&lng=${lng}`, null, token),
 }
 
 // ---- SOIL ----
@@ -116,8 +166,8 @@ export const marketAPI = {
     const qs = new URLSearchParams(params).toString()
     return request('GET', `/market/prices?${qs}`, null, token)
   },
-  getPriceHistory: (cropId, mandirId, days, token) =>
-    request('GET', `/market/prices/history?crop_id=${cropId}&mandir_id=${mandirId}&days=${days}`, null, token),
+  getPriceHistory: (cropId, mandi, days, token) =>
+    request('GET', `/market/prices/history?crop=${cropId || 'soybean'}&mandi=${mandi || 'indore'}&days=${days || 180}`, null, token),
   getMandis: (state, token) =>
     request('GET', `/market/mandis?state=${encodeURIComponent(state)}`, null, token),
   getPriceForecast: (cropId, token) =>
