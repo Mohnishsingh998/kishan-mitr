@@ -30,6 +30,12 @@ if (useSQLite) {
       port: parseInt(process.env.DB_PORT) || 5432,
       dialect: 'postgres',
       logging: console.log,
+      dialectOptions: process.env.DB_SSL === 'true' ? {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      } : {},
       pool: {
         max: 5,
         min: 0,
